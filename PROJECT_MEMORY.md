@@ -12,6 +12,7 @@ ships it to the cloud, and displays it on a web dashboard in real time.
 
 ---
 
+
 ## Architecture
 
 ```text
