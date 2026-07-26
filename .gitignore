@@ -1,0 +1,40 @@
+# ============================================================
+# SmartGarden-IoTV2 — .gitignore
+# ============================================================
+
+# ----- Firmware secrets -----
+firmware/config/secrets.h
+firmware/config/aws_certificates/
+
+# ----- PlatformIO build artifacts -----
+firmware/.pio/
+firmware/.vscode/
+
+# ----- Node / Next.js -----
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/.env
+dashboard/.env.local
+dashboard/.env*.local
+
+# ----- AWS credentials / certs -----
+cloud/**/*.pem
+cloud/**/*.key
+cloud/**/*.crt
+*.pem
+*.key
+
+# ----- Scripts secrets -----
+scripts/.env
+
+# ----- OS artifacts -----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ----- Editor -----
+.vscode/settings.json
+.idea/
+*.swp
+*~
