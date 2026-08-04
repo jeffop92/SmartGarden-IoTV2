@@ -1,4 +1,4 @@
-# PROJECT_MEMORY — SmartGarden-IoTV2
+# PROJECT_MEMORY — SmartGarden-IoTV2 (Firebase Migration)
 
 > Single source of truth. Updated at every phase.
 
@@ -6,37 +6,27 @@
 
 ## Goal
 
-Build an IoT monitoring system for a domestic vegetable garden.
-The system reads soil moisture and pH data from physical sensors,
-ships it to the cloud, and displays it on a web dashboard in real time.
+Migrar el sistema de monitoreo y control de riego en tiempo real de AWS IoT Core a Firebase Realtime Database para cultivos hortícolas domésticos (Tesis).
+El sistema lee la humedad del suelo, pH y datos ambientales (DHT22), envía los datos a Firebase mediante HTTPS, permite el control del riego manual desde un Dashboard y mantiene el control automático en el ESP32.
 
 ---
 
-
-## Architecture
+## Arquitectura (Nueva)
 
 ```text
 ESP32 (Firmware)
-  ├── Capacitive Soil Moisture Sensor
-  └── PH-4502C Sensor
-        ↓ WiFi / MQTT
-
-AWS IoT Core
-        ↓
-
-AWS Lambda (Data Processing & Validation)
-        ↓
-
-Amazon DynamoDB (Sensor Readings)
-
+  ├── Sensor Capacitivo Humedad del Suelo
+  ├── Sensor de pH (PH-4502C)
+  ├── Sensor DHT22 (Temperatura y Humedad)
+  └── Relé (Bomba/Electroválvula)
+        ↓ WiFi / HTTPS
+        
+Firebase Realtime Database
         ↑
-AWS Lambda (Data Query API)
-        ↑
-
-Next.js 15 Dashboard (User Interface - Spanish)
         ↓
-
-User (Browser)
+Dashboard Web (Next.js 15)
+        ↓
+Usuario (Navegador)
 ```
 
 ---
@@ -46,13 +36,12 @@ User (Browser)
 | Layer      | Stack                                    |
 |------------|------------------------------------------|
 | Firmware   | C/C++ · PlatformIO · Arduino framework   |
-| Protocol   | MQTT (TLS) · AWS IoT Core                |
-| Processing | AWS Lambda                                   |
-| Database   | Amazon DynamoDB                          |
-| Frontend   | Next.js 15 · React 19 · TypeScript · Tailwind CSS |
+| Protocol   | HTTPS (REST)                             |
+| Database   | Firebase Realtime Database               |
+| Frontend   | Next.js 15 · React 19 · TypeScript       |
 
 
-**Forbidden:** Firebase, Docker, Kubernetes, Cognito, API Gateway, ECS, EC2, MongoDB, PostgreSQL, MySQL.
+**Eliminado:** AWS IoT Core, MQTT, PubSubClient, Certificados X.509, AWS Lambda, DynamoDB.
 
 ---
 
@@ -61,79 +50,43 @@ User (Browser)
 ```
 SmartGarden-IoTV2/
 ├── firmware/           # ESP32 source code (PlatformIO project)
-│   ├── src/            # Main .cpp files: sensors, WiFi, MQTT
-│   ├── include/        # Shared header files and constants
-│   ├── lib/            # Vendored third-party libraries
-│   └── config/         # Secrets & certs (gitignored)
-├── cloud/              # AWS serverless resources
-│   ├── lambda/         # Lambda function code
-│   ├── iot-policies/   # AWS IoT Core JSON policies
-│   └── dynamodb/       # Table schemas and query scripts
-├── dashboard/          # Next.js 15 frontend (Next.js App Router)
-│   ├── src/
-│   │   ├── app/        # App Router: layout, pages, global CSS
-│   │   ├── components/ # Reusable React components
-│   │   │   ├── ui/     # Atomic UI elements
-│   │   │   └── layout/ # Header, footer, navigation
-│   │   ├── lib/        # Utility functions and helpers
-│   │   └── types/      # TypeScript type definitions
-│   ├── public/         # Static assets
-│   ├── next.config.ts
-│   ├── tsconfig.json
-│   ├── .prettierrc
-│   └── package.json
+│   ├── src/            # Main .cpp files: sensors, WiFi, firebase_client, controller, irrigation
+│   ├── include/        # Shared header files
+│   ├── lib/            # Vendored libraries (Firebase ESP32 Client, ArduinoJson)
+│   └── config/         # config.h (Firebase credentials, WiFi)
+├── dashboard/          # Next.js 15 frontend
 ├── docs/               # Diagrams, schematics, hardware photos
-│   ├── diagrams/
-│   └── hardware/
-├── scripts/            # Utility scripts (deploy, MQTT test, seed)
+├── scripts/            # Utility scripts
 ├── .gitignore
 └── PROJECT_MEMORY.md   # this file
 ```
 
 ---
 
-## Current Phase
+## Auditoría y Módulos Reutilizables
 
-**Phase 2 — Next.js Dashboard Setup** COMPLETE
-
----
-
-## Completed Work
-
-**Phase 1 — Project Setup**
-- [x] Designed and created folder structure
-- [x] Created `.gitignore` (secrets, certs, build artifacts excluded)
-- [x] Created `PROJECT_MEMORY.md`
-- [x] Initialized Git repository with initial commit
-
-**Phase 2 — Next.js Dashboard Setup**
-- [x] Scaffolded Next.js 15.5 with React 19, TypeScript, Tailwind CSS 4, ESLint
-- [x] Installed and configured Prettier + prettier-plugin-tailwindcss
-- [x] Created App Router folder structure (components/ui, components/layout, lib, types)
-- [x] Written minimal root layout with Spanish locale and SEO metadata
-- [x] Written temporary home page: "SmartGarden IoT v2" + "Proyecto en construcción"
-- [x] Verified production build compiles without errors (`✓ Compiled successfully`)
+Tras analizar la base del proyecto existente en `firmware/`:
+- **Reutilizables:**
+  - `main.cpp`: Lógica principal y bucle (`loop`). Se adaptará a Firebase y a la nueva lógica de riego.
+  - `wifi_manager.cpp` / `.h`: Totalmente reutilizable (gestión de conexión WiFi).
+  - `sensors.cpp` / `.h`: Lecturas del DHT22 y configuración inicial del ADC. Se debe completar con la lógica de calibración.
+  - `config.h`: Constantes, pines, tiempos. Se quitarán los datos de AWS MQTT y se pondrán los de Firebase.
+- **Para Eliminar:**
+  - `aws_certs.cpp` / `.h`: No se usarán certificados X.509.
+  - `mqtt_client.cpp` / `.h`: Se reemplazará por HTTPS hacia Firebase.
+  - Dependencia `knolleary/PubSubClient` en `platformio.ini`.
+- **Nuevos Módulos (Propuestos):**
+  - `firebase_client.cpp` / `.h`: Para gestionar los POST/PUT/GET a Firebase Realtime Database usando la librería oficial de Firebase para ESP32 de mobizt.
+  - `irrigation.cpp` / `.h`: Para alojar la lógica del control automático del riego y el control del relé.
 
 ---
 
-## Pending Work
+## Plan de Trabajo Paso a Paso
 
-- [ ] Phase 3 — Firmware: ESP32 sensor reading + MQTT publish
-- [ ] Phase 4 — AWS IoT Core: thing, certificates, policy
-- [ ] Phase 5 — AWS Lambda: ingest & write to DynamoDB
-- [ ] Phase 6 — DynamoDB: table design
-- [ ] Phase 7 — Next.js Dashboard: real-time data display
-
----
-
-## Important Technical Decisions
-
-| Decision | Rationale |
-|---|---|
-| PlatformIO over Arduino IDE | Better dependency management, CLI-friendly, CI-compatible |
-| MQTT over HTTP | Lower latency, lower power consumption on ESP32 |
-| DynamoDB single-table design | Cost-efficient, serverless-native, no SQL overhead |
-| Next.js 15 App Router | Server Components reduce client bundle, built-in TypeScript |
-| Tailwind CSS v4 | New CSS-first config, zero JS config file, faster builds |
-| prettier-plugin-tailwindcss | Enforces consistent class ordering automatically |
-| All UI text in Spanish | University project requirement |
+1. **Paso 1:** Auditoría inicial y actualización de la documentación (`PROJECT_MEMORY.md`). (Completado)
+2. **Paso 2:** Limpieza del proyecto (Eliminar AWS/MQTT, actualizar `platformio.ini`, limpiar `config.h`).
+3. **Paso 3:** Implementación del cliente de Firebase (`firebase_client.cpp/.h`).
+4. **Paso 4:** Implementación de la lógica de riego (`irrigation.cpp/.h`).
+5. **Paso 5:** Integración final en `main.cpp` (Sensores -> Lógica -> Firebase).
+6. **Paso 6:** Pruebas y validación del Firmware.
+7. **Paso 7:** Desarrollo del Dashboard Web conectado a Firebase.

@@ -10,6 +10,8 @@
 struct SensorReading {
     float soilMoisturePercent;  // 0.0 – 100.0 %
     float phValue;              // 0.0 – 14.0
+    float airTemperatureC;      // °C
+    float airHumidityPercent;   // %
     unsigned long timestampMs;  // millis() at time of reading
     bool  valid;                // true if reading was successful
 };

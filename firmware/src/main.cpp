@@ -1,53 +1,50 @@
 #include <Arduino.h>
 #include "../config/config.h"
 #include "wifi_manager.h"
-#include "mqtt_client.h"
 #include "sensors.h"
+#include "firebase_client.h"
+#include "irrigation.h"
 
 // ==============================================================
 // main.cpp — SmartGarden-IoTV2 Firmware Entry Point
-// Phase 3: Firmware architecture foundation.
-//   - Serial initialization
-//   - WiFi connection (placeholder credentials)
-//   - Module initialization with status messages
-//   - Main loop scaffold (sensors + MQTT pending)
 // ==============================================================
 
 // --------------- Timing state ---------------------------------
 static unsigned long _lastReadingMs  = 0;
 static unsigned long _lastPublishMs  = 0;
+static unsigned long _lastControlMs  = 0;
+
+// Variables de estado del Dashboard
+static bool _isManualMode = false;
+static bool _manualPumpState = false;
 
 // --------------- Arduino lifecycle ----------------------------
 
 void setup() {
     // 1. Serial
     Serial.begin(SERIAL_BAUD_RATE);
-    delay(500); // Allow USB serial to settle
+    delay(500);
     Serial.println();
     Serial.println("==============================================");
     Serial.print  ("  ");
     Serial.println(DEVICE_NAME);
-    Serial.println("  SmartGarden-IoTV2 — Firmware v0.1.0");
+    Serial.println("  SmartGarden-IoTV2 — Firmware (Firebase)");
     Serial.println("==============================================");
 
-    // 2. Sensors (GPIO init only — no reading yet)
-    Serial.println("[Setup] Inicializando sensores...");
+    // 2. Módulos de Hardware
+    Serial.println("[Setup] Inicializando hardware...");
     sensors_init();
+    irrigation_init();
 
-    // 3. WiFi
-    Serial.println("[Setup] Inicializando WiFi...");
+    // 3. Red y Nube
+    Serial.println("[Setup] Inicializando red...");
     wifi_init();
+    firebase_init();
 
-    // 4. MQTT (stub — full init in Phase 4)
-    Serial.println("[Setup] Inicializando cliente MQTT...");
-    mqtt_init();
-
-    // 5. Ready
+    // 4. Ready
     Serial.println("[Setup] Sistema listo.");
     Serial.print  ("[Setup] WiFi conectado: ");
     Serial.println(wifi_isConnected() ? "SI" : "NO");
-    Serial.print  ("[Setup] MQTT conectado: ");
-    Serial.println(mqtt_isConnected() ? "SI" : "NO");
     Serial.println("==============================================");
     Serial.println("[Loop] Iniciando bucle principal...");
 }
@@ -55,26 +52,44 @@ void setup() {
 void loop() {
     unsigned long now = millis();
 
-    // Maintain WiFi connection
+    // 1. Mantener WiFi activo
     wifi_maintain();
 
-    // Maintain MQTT connection (stub — Phase 4)
-    mqtt_maintain();
+    // 2. Leer comandos manuales desde Firebase (cada 5 segundos para no saturar)
+    if (now - _lastControlMs >= 5000) {
+        _lastControlMs = now;
+        if (wifi_isConnected()) {
+            firebase_getManualControlState(_isManualMode, _manualPumpState);
+        }
+    }
 
-    // Sensor reading interval  (stub — Phase 5)
+    // 3. Leer sensores y ejecutar lógica de riego
     if (now - _lastReadingMs >= READING_INTERVAL_MS) {
         _lastReadingMs = now;
-        Serial.println("[Loop] Intervalo de lectura alcanzado (sensores pendientes - Fase 5).");
-        // sensors_read() will be enabled in Phase 5
+        
+        // Tomar lecturas
+        SensorReading reading = sensors_read();
+        
+        // Ejecutar cerebro de riego
+        irrigation_process(reading.soilMoisturePercent, _isManualMode, _manualPumpState);
     }
 
-    // MQTT publish interval  (stub — Phase 4)
+    // 4. Publicar datos a Firebase
     if (now - _lastPublishMs >= PUBLISH_INTERVAL_MS) {
         _lastPublishMs = now;
-        Serial.println("[Loop] Intervalo de publicacion alcanzado (MQTT pendiente - Fase 4).");
-        // mqtt_publish() will be enabled in Phase 4
+
+        if (wifi_isConnected()) {
+            SensorReading reading = sensors_getLastReading();
+            bool pumpStatus = irrigation_isPumpOn();
+            
+            if (firebase_publishReading(reading, pumpStatus)) {
+                Serial.println("[Loop] Lectura enviada a Firebase correctamente.");
+            }
+        } else {
+            Serial.println("[Loop] Sin WiFi. No se enviaron datos.");
+        }
     }
 
-    // Small delay to avoid busy-looping
-    delay(100);
+    // Pequeño delay para estabilidad del RTOS
+    delay(10);
 }

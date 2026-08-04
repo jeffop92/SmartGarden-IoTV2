@@ -8,30 +8,27 @@
 // ----------------------------------------------------------
 // WiFi
 // ----------------------------------------------------------
-#define WIFI_SSID        "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD    "YOUR_WIFI_PASSWORD"
+#define WIFI_SSID        "Hotspot-Jeff"
+#define WIFI_PASSWORD    "1234567ocho"
 // Reconnection settings
 #define WIFI_RECONNECT_DELAY_MS   5000   // ms between reconnect attempts
 #define WIFI_MAX_RETRIES          10     // max attempts before reboot
 // ----------------------------------------------------------
-// MQTT / AWS IoT Core
-// (Will be completed in Phase 4 — AWS IoT Core integration)
+// Firebase Realtime Database
 // ----------------------------------------------------------
-#define MQTT_BROKER_HOST   "YOUR_AWS_IOT_ENDPOINT.iot.us-east-1.amazonaws.com"
-#define MQTT_BROKER_PORT   8883          // TLS port
-#define MQTT_CLIENT_ID     "smartgarden-esp32-01"
-#define MQTT_TOPIC_PUBLISH "smartgarden/sensors/readings"
-#define MQTT_TOPIC_STATUS  "smartgarden/sensors/status"
-#define MQTT_KEEPALIVE_S   60            // seconds
+#define FIREBASE_HOST "tu-proyecto.firebaseio.com"
+#define FIREBASE_AUTH "tu-secreto-de-base-de-datos-o-api-key"
 // ----------------------------------------------------------
 // Sensor GPIO Pins  (ESP32 ADC1 — use GPIO 32-39 for analog)
 // ----------------------------------------------------------
-#define PIN_SOIL_MOISTURE  34   // ADC1_CH6 — Capacitive soil moisture sensor
+#define PIN_SOIL_MOISTURE  32   // ADC1_CH6 — Capacitive soil moisture sensor
 #define PIN_PH_SENSOR      35   // ADC1_CH7 — PH-4502C analog output
+#define PIN_DHT            4
+#define DHT_TYPE           DHT22
 // ----------------------------------------------------------
 // Sensor Reading Intervals
 // ----------------------------------------------------------
-#define READING_INTERVAL_MS   30000  // Read sensors every 30 seconds
+#define READING_INTERVAL_MS   20000  // Read sensors every 20 seconds
 #define PUBLISH_INTERVAL_MS   60000  // Publish MQTT every 60 seconds
 // ----------------------------------------------------------
 // Soil Moisture Calibration
@@ -55,3 +52,9 @@
 // ----------------------------------------------------------
 #define SERIAL_BAUD_RATE   115200
 #define DEVICE_NAME        "SmartGarden-ESP32-01"
+
+// ----------------------------------------------------------
+// Irrigation / Relays
+// ----------------------------------------------------------
+#define PIN_RELAY_PUMP     23    // GPIO 23 para la bomba de agua (Relé)
+#define MOISTURE_THRESHOLD 30.0f // % de humedad para activar riego automático
