@@ -23,6 +23,7 @@ import {
   RefreshCw,
   CheckCircle
 } from 'lucide-react'
+import HistoricoMediciones from '@/components/ui/HistoricoMediciones'
 
 // Soil moisture calibration constants (from config.h: Dry=2800, Wet=900)
 const SOIL_ADC_DRY = 2800
@@ -545,6 +546,9 @@ export default function HomePage() {
           </div>
 
         </section>
+
+        {/* HISTORICAL TELEMETRY */}
+        <HistoricoMediciones />
       </div>
     </main>
   )

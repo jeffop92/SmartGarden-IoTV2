@@ -8,53 +8,60 @@
 // ----------------------------------------------------------
 // WiFi
 // ----------------------------------------------------------
-#define WIFI_SSID        "Hotspot-Jeff"
-#define WIFI_PASSWORD    "1234567ocho"
+#define WIFI_SSID "Celerity_Palacio"
+#define WIFI_PASSWORD "1104184674@"
 // Reconnection settings
-#define WIFI_RECONNECT_DELAY_MS   5000   // ms between reconnect attempts
-#define WIFI_MAX_RETRIES          10     // max attempts before reboot
+#define WIFI_RECONNECT_DELAY_MS 5000 // ms between reconnect attempts
+#define WIFI_MAX_RETRIES 10          // max attempts before reboot
 // ----------------------------------------------------------
 // Firebase Realtime Database
 // ----------------------------------------------------------
-#define FIREBASE_HOST "tu-proyecto.firebaseio.com"
-#define FIREBASE_AUTH "tu-secreto-de-base-de-datos-o-api-key"
+#define FIREBASE_HOST "https://smart-garden-60bf2-default-rtdb.firebaseio.com/"
+#define FIREBASE_AUTH "ZfWknAl30lfHZsG8tMjWdslCFk31WbUzfthEL0hQ"
 // ----------------------------------------------------------
 // Sensor GPIO Pins  (ESP32 ADC1 — use GPIO 32-39 for analog)
 // ----------------------------------------------------------
-#define PIN_SOIL_MOISTURE  32   // ADC1_CH6 — Capacitive soil moisture sensor
-#define PIN_PH_SENSOR      35   // ADC1_CH7 — PH-4502C analog output
-#define PIN_DHT            4
-#define DHT_TYPE           DHT22
+#define PIN_SOIL_MOISTURE 32 // ADC1_CH6 — Capacitive soil moisture sensor
+#define PIN_PH_SENSOR 35     // ADC1_CH7 — PH-4502C analog output
+#define PIN_DHT 4
+#define DHT_TYPE DHT22
 // ----------------------------------------------------------
 // Sensor Reading Intervals
 // ----------------------------------------------------------
-#define READING_INTERVAL_MS   20000  // Read sensors every 20 seconds
-#define PUBLISH_INTERVAL_MS   60000  // Publish MQTT every 60 seconds
+#define READING_INTERVAL_MS 20000 // Read sensors every 20 seconds
+#define PUBLISH_INTERVAL_MS 60000 // Publish MQTT every 60 seconds
 // ----------------------------------------------------------
 // Soil Moisture Calibration
 // Raw ADC values from capacitive sensor (12-bit, 0-4095)
 // Dry:  value measured in open air
 // Wet:  value measured fully submerged
 // ----------------------------------------------------------
-#define SOIL_ADC_DRY    2800   // Calibrate with your sensor
-#define SOIL_ADC_WET     900   // Calibrate with your sensor
+#define SOIL_ADC_DRY 2800 // Calibrate with your sensor
+#define SOIL_ADC_WET 900  // Calibrate with your sensor
 // ----------------------------------------------------------
 // pH Calibration (PH-4502C)
 // The module outputs 0-5V mapped to pH 0-14.
 // ESP32 ADC reads 0-3.3V → use voltage divider or level-shift.
 // pH = (ADC_VOLTAGE - OFFSET) / SLOPE
 // ----------------------------------------------------------
-#define PH_CALIBRATION_SLOPE    -5.70f   // Adjust after calibration
-#define PH_CALIBRATION_OFFSET   21.34f  // Adjust after calibration
-#define PH_SAMPLES              10      // Averaged readings per measurement
+#define PH_CALIBRATION_SLOPE -5.70f  // Adjust after calibration
+#define PH_CALIBRATION_OFFSET 21.34f // Adjust after calibration
+#define PH_SAMPLES 10                // Averaged readings per measurement
 // ----------------------------------------------------------
 // System
 // ----------------------------------------------------------
-#define SERIAL_BAUD_RATE   115200
-#define DEVICE_NAME        "SmartGarden-ESP32-01"
+#define SERIAL_BAUD_RATE 115200
+#define DEVICE_NAME "SmartGarden-ESP32-01"
 
 // ----------------------------------------------------------
 // Irrigation / Relays
 // ----------------------------------------------------------
-#define PIN_RELAY_PUMP     23    // GPIO 23 para la bomba de agua (Relé)
+#define PIN_RELAY_PUMP 23        // GPIO 23 para la bomba de agua (Relé)
 #define MOISTURE_THRESHOLD 30.0f // % de humedad para activar riego automático
+
+// ----------------------------------------------------------
+// NTP Settings (for historical path YYYY-MM-DD)
+// ----------------------------------------------------------
+#define NTP_SERVER "pool.ntp.org"
+#define NTP_GMT_OFFSET_SEC -18000 // -5 hours for GMT-5
+#define NTP_DAYLIGHT_OFFSET_SEC 0

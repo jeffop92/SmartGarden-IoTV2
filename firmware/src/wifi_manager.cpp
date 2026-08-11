@@ -1,5 +1,6 @@
 #include "wifi_manager.h"
 #include <WiFi.h>
+#include <time.h>
 #include "../config/config.h"
 // ==============================================================
 // wifi_manager.cpp — WiFi connection management
@@ -30,6 +31,10 @@ void wifi_init() {
         Serial.print("[WiFi] RSSI: ");
         Serial.print(WiFi.RSSI());
         Serial.println(" dBm");
+
+        // Configurar sincronizacion de tiempo (NTP)
+        configTime(NTP_GMT_OFFSET_SEC, NTP_DAYLIGHT_OFFSET_SEC, NTP_SERVER);
+        Serial.println("[WiFi] NTP configurado e iniciado.");
     } else {
         _connected = false;
         Serial.println("[WiFi] ERROR: No se pudo conectar. Verificar credenciales.");

@@ -1,6 +1,7 @@
 #include "firebase_client.h"
 #include "../config/config.h"
 #include <FirebaseESP32.h>
+#include <time.h>
 
 // ==============================================================
 // firebase_client.cpp — Comunicación con Firebase RTDB
@@ -32,10 +33,21 @@ void firebase_init() {
     Serial.println("[Firebase] Inicialización completa.");
 }
 
+static String getLocalDateString() {
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo, 1000)) {
+        return "";
+    }
+    char buffer[16];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d", &timeinfo);
+    return String(buffer);
+}
+
 bool firebase_publishReading(const SensorReading& reading, bool pumpIsOn) {
     if (!_firebaseReady) return false;
     if (!reading.valid) return false;
     
+    // Reutilizar el mismo objeto FirebaseJson para ahorrar memoria
     FirebaseJson json;
     json.set("soilMoisture", reading.soilMoisturePercent);
     json.set("ph", reading.phValue);
@@ -44,14 +56,39 @@ bool firebase_publishReading(const SensorReading& reading, bool pumpIsOn) {
     json.set("pumpIsOn", pumpIsOn);
     json.set("timestamp", String(millis())); // Timestamp temporal basado en uptime
     
-    // Ruta en RTDB: /smartgarden/sensors/current
+    bool currentSuccess = false;
+    bool historySuccess = false;
+    
+    // Operación 1: Actualizar lectura actual en /smartgarden/sensors/current
     if (Firebase.setJSON(fbdo, "/smartgarden/sensors/current", json)) {
-        return true;
+        currentSuccess = true;
     } else {
-        Serial.print("[Firebase] Error al enviar lectura: ");
+        Serial.print("[Firebase] Error al enviar lectura actual: ");
         Serial.println(fbdo.errorReason());
-        return false;
     }
+    
+    // Operación 2: Añadir registro histórico en /smartgarden/history/YYYY-MM-DD/
+    String dateStr = getLocalDateString();
+    if (dateStr.length() > 0) {
+        String historyPath = "/smartgarden/history/" + dateStr;
+        if (Firebase.pushJSON(fbdo, historyPath.c_str(), json)) {
+            historySuccess = true;
+        } else {
+            Serial.print("[Firebase] Error al enviar lectura historica: ");
+            Serial.println(fbdo.errorReason());
+        }
+    } else {
+        Serial.println("[Firebase] Error: NTP no sincronizado. Omitiendo almacenamiento historico.");
+    }
+    
+    // Advertencias si falla alguna de las operaciones de manera independiente
+    if (currentSuccess && !historySuccess) {
+        Serial.println("[Firebase] ADVERTENCIA: Actualizacion de lectura actual exitosa pero fallo el almacenamiento historico.");
+    } else if (!currentSuccess && historySuccess) {
+        Serial.println("[Firebase] ADVERTENCIA: Almacenamiento historico exitoso pero fallo la actualizacion de lectura actual.");
+    }
+    
+    return currentSuccess && historySuccess;
 }
 
 bool firebase_getManualControlState(bool &isManual, bool &pumpState) {
