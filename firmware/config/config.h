@@ -36,8 +36,8 @@
 // Dry:  value measured in open air
 // Wet:  value measured fully submerged
 // ----------------------------------------------------------
-#define SOIL_ADC_DRY 2800 // Calibrate with your sensor
-#define SOIL_ADC_WET 900  // Calibrate with your sensor
+#define SOIL_ADC_DRY 4095
+#define SOIL_ADC_WET 2126
 // ----------------------------------------------------------
 // pH Calibration (PH-4502C)
 // The module outputs 0-5V mapped to pH 0-14.
@@ -54,10 +54,32 @@
 #define DEVICE_NAME "SmartGarden-ESP32-01"
 
 // ----------------------------------------------------------
-// Irrigation / Relays
+// Irrigation / L298N
 // ----------------------------------------------------------
-#define PIN_RELAY_PUMP 23        // GPIO 23 para la bomba de agua (Relé)
-#define MOISTURE_THRESHOLD 30.0f // % de humedad para activar riego automático
+
+// L298N IN1 controla la bomba.
+// IN2 está conectado físicamente a GND.
+// GPIO 23 = HIGH (~3.3 V) -> bomba ON
+// GPIO 23 = LOW (0 V)    -> bomba OFF
+#define PIN_L298N_IN1 23
+
+#define MOISTURE_THRESHOLD 30.0f
+
+// ----------------------------------------------------------
+// LCD 16x2 I2C
+// ----------------------------------------------------------
+#define PIN_LCD_SDA 21
+#define PIN_LCD_SCL 22
+
+// ----------------------------------------------------------
+// Water level sensor
+// ----------------------------------------------------------
+#define PIN_WATER_LEVEL 16
+
+// ----------------------------------------------------------
+// Status LED
+// ----------------------------------------------------------
+#define PIN_STATUS_LED 15
 
 // ----------------------------------------------------------
 // NTP Settings (for historical path YYYY-MM-DD)
