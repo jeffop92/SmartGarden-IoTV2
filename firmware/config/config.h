@@ -1,89 +1,93 @@
+
 #pragma once
+
 // ==============================================================
 // SmartGarden-IoTV2 — Central Configuration
-// IMPORTANT: Do NOT commit real credentials to version control.
-//            Copy this file and fill in values locally,
-//            or use firmware/config/secrets.h (gitignored).
 // ==============================================================
-// ----------------------------------------------------------
+
+// --------------------------------------------------------------
 // WiFi
-// ----------------------------------------------------------
-#define WIFI_SSID "Celerity_Palacio"
+// --------------------------------------------------------------
+#define WIFI_SSID "CELERITY_PALACIO"
 #define WIFI_PASSWORD "1104184674@"
-// Reconnection settings
-#define WIFI_RECONNECT_DELAY_MS 5000 // ms between reconnect attempts
-#define WIFI_MAX_RETRIES 10          // max attempts before reboot
-// ----------------------------------------------------------
+
+#define WIFI_RECONNECT_DELAY_MS 5000
+#define WIFI_MAX_RETRIES 10
+
+// --------------------------------------------------------------
 // Firebase Realtime Database
-// ----------------------------------------------------------
+// --------------------------------------------------------------
 #define FIREBASE_HOST "https://smart-garden-60bf2-default-rtdb.firebaseio.com/"
 #define FIREBASE_AUTH "ZfWknAl30lfHZsG8tMjWdslCFk31WbUzfthEL0hQ"
-// ----------------------------------------------------------
-// Sensor GPIO Pins  (ESP32 ADC1 — use GPIO 32-39 for analog)
-// ----------------------------------------------------------
-#define PIN_SOIL_MOISTURE 32 // ADC1_CH6 — Capacitive soil moisture sensor
-#define PIN_PH_SENSOR 35     // ADC1_CH7 — PH-4502C analog output
+
+// --------------------------------------------------------------
+// Sensor GPIO Pins
+// --------------------------------------------------------------
+#define PIN_SOIL_MOISTURE 32 // Sensor capacitivo de humedad
+#define PIN_PH_SENSOR 35     // Sensor PH-4502C, salida PO
 #define PIN_DHT 4
 #define DHT_TYPE DHT22
-// ----------------------------------------------------------
+
+// --------------------------------------------------------------
 // Sensor Reading Intervals
-// ----------------------------------------------------------
-#define READING_INTERVAL_MS 20000 // Read sensors every 20 seconds
-#define PUBLISH_INTERVAL_MS 60000 // Publish MQTT every 60 seconds
-// ----------------------------------------------------------
+// --------------------------------------------------------------
+#define READING_INTERVAL_MS 20000
+#define PUBLISH_INTERVAL_MS 15000
+
+// --------------------------------------------------------------
 // Soil Moisture Calibration
-// Raw ADC values from capacitive sensor (12-bit, 0-4095)
-// Dry:  value measured in open air
-// Wet:  value measured fully submerged
-// ----------------------------------------------------------
-#define SOIL_ADC_DRY 4095
-#define SOIL_ADC_WET 2126
-// ----------------------------------------------------------
-// pH Calibration (PH-4502C)
-// The module outputs 0-5V mapped to pH 0-14.
-// ESP32 ADC reads 0-3.3V → use voltage divider or level-shift.
-// pH = (ADC_VOLTAGE - OFFSET) / SLOPE
-// ----------------------------------------------------------
-#define PH_CALIBRATION_SLOPE -5.70f  // Adjust after calibration
-#define PH_CALIBRATION_OFFSET 21.34f // Adjust after calibration
-#define PH_SAMPLES 10                // Averaged readings per measurement
-// ----------------------------------------------------------
+// Calibración experimental provisional
+// ADC seco = 2495; ADC húmedo = 1200
+// --------------------------------------------------------------
+#define SOIL_ADC_DRY 2495
+#define SOIL_ADC_WET 1200
+
+// --------------------------------------------------------------
+// pH Calibration — PH-4502C
+// Interpolación lineal por tramos
+// Valores ADC promedio medidos experimentalmente
+// --------------------------------------------------------------
+#define PH_ADC_401 1935.93f
+#define PH_ADC_686 1653.35f
+#define PH_ADC_918 1386.30f
+
+#define PH_SAMPLES 10
+
+// --------------------------------------------------------------
 // System
-// ----------------------------------------------------------
+// --------------------------------------------------------------
 #define SERIAL_BAUD_RATE 115200
 #define DEVICE_NAME "SmartGarden-ESP32-01"
 
-// ----------------------------------------------------------
+// --------------------------------------------------------------
 // Irrigation / L298N
-// ----------------------------------------------------------
-
-// L298N IN1 controla la bomba.
-// IN2 está conectado físicamente a GND.
-// GPIO 23 = HIGH (~3.3 V) -> bomba ON
-// GPIO 23 = LOW (0 V)    -> bomba OFF
+// --------------------------------------------------------------
 #define PIN_L298N_IN1 23
 
-#define MOISTURE_THRESHOLD 30.0f
-
-// ----------------------------------------------------------
+// IN1 HIGH = bomba encendida
+// IN1 LOW  = bomba apagada
+// IN2 conectado a GND según el montaje documentado
+#define MOISTURE_THRESHOLD_ON 50.0f
+#define MOISTURE_THRESHOLD_OFF 60.0f
+// --------------------------------------------------------------
 // LCD 16x2 I2C
-// ----------------------------------------------------------
+// --------------------------------------------------------------
 #define PIN_LCD_SDA 21
 #define PIN_LCD_SCL 22
 
-// ----------------------------------------------------------
-// Water level sensor
-// ----------------------------------------------------------
+// --------------------------------------------------------------
+// Water Level Sensor
+// --------------------------------------------------------------
 #define PIN_WATER_LEVEL 16
 
-// ----------------------------------------------------------
+// --------------------------------------------------------------
 // Status LED
-// ----------------------------------------------------------
+// --------------------------------------------------------------
 #define PIN_STATUS_LED 15
 
-// ----------------------------------------------------------
-// NTP Settings (for historical path YYYY-MM-DD)
-// ----------------------------------------------------------
+// --------------------------------------------------------------
+// NTP Settings
+// --------------------------------------------------------------
 #define NTP_SERVER "pool.ntp.org"
-#define NTP_GMT_OFFSET_SEC -18000 // -5 hours for GMT-5
+#define NTP_GMT_OFFSET_SEC -18000
 #define NTP_DAYLIGHT_OFFSET_SEC 0

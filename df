@@ -1,0 +1,371 @@
+warning: in the working copy of 'firmware/src/irrigation.cpp', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'firmware/src/main.cpp', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/firmware/config/config.h b/firmware/config/config.h[m
+[1mindex b60db57..a1e73a9 100644[m
+[1m--- a/firmware/config/config.h[m
+[1m+++ b/firmware/config/config.h[m
+[36m@@ -36,8 +36,8 @@[m
+ // Dry:  value measured in open air[m
+ // Wet:  value measured fully submerged[m
+ // ----------------------------------------------------------[m
+[31m-#define SOIL_ADC_DRY 2800 // Calibrate with your sensor[m
+[31m-#define SOIL_ADC_WET 900  // Calibrate with your sensor[m
+[32m+[m[32m#define SOIL_ADC_DRY 4095[m
+[32m+[m[32m#define SOIL_ADC_WET 2126[m
+ // ----------------------------------------------------------[m
+ // pH Calibration (PH-4502C)[m
+ // The module outputs 0-5V mapped to pH 0-14.[m
+[36m@@ -54,10 +54,32 @@[m
+ #define DEVICE_NAME "SmartGarden-ESP32-01"[m
+ [m
+ // ----------------------------------------------------------[m
+[31m-// Irrigation / Relays[m
+[32m+[m[32m// Irrigation / L298N[m
+ // ----------------------------------------------------------[m
+[31m-#define PIN_RELAY_PUMP 23        // GPIO 23 para la bomba de agua (Relé)[m
+[31m-#define MOISTURE_THRESHOLD 30.0f // % de humedad para activar riego automático[m
+[32m+[m
+[32m+[m[32m// L298N IN1 controla la bomba.[m
+[32m+[m[32m// IN2 está conectado físicamente a GND.[m
+[32m+[m[32m// GPIO 23 = HIGH (~3.3 V) -> bomba ON[m
+[32m+[m[32m// GPIO 23 = LOW (0 V)    -> bomba OFF[m
+[32m+[m[32m#define PIN_L298N_IN1 23[m
+[32m+[m
+[32m+[m[32m#define MOISTURE_THRESHOLD 30.0f[m
+[32m+[m
+[32m+[m[32m// ----------------------------------------------------------[m
+[32m+[m[32m// LCD 16x2 I2C[m
+[32m+[m[32m// ----------------------------------------------------------[m
+[32m+[m[32m#define PIN_LCD_SDA 21[m
+[32m+[m[32m#define PIN_LCD_SCL 22[m
+[32m+[m
+[32m+[m[32m// ----------------------------------------------------------[m
+[32m+[m[32m// Water level sensor[m
+[32m+[m[32m// ----------------------------------------------------------[m
+[32m+[m[32m#define PIN_WATER_LEVEL 16[m
+[32m+[m
+[32m+[m[32m// ----------------------------------------------------------[m
+[32m+[m[32m// Status LED[m
+[32m+[m[32m// ----------------------------------------------------------[m
+[32m+[m[32m#define PIN_STATUS_LED 15[m
+ [m
+ // ----------------------------------------------------------[m
+ // NTP Settings (for historical path YYYY-MM-DD)[m
+[1mdiff --git a/firmware/platformio.ini b/firmware/platformio.ini[m
+[1mindex f42503b..d85e9f5 100644[m
+[1m--- a/firmware/platformio.ini[m
+[1m+++ b/firmware/platformio.ini[m
+[36m@@ -29,6 +29,8 @@[m [mlib_deps =[m
+     ; DHT22[m
+     adafruit/DHT sensor library @ ^1.4.6[m
+     adafruit/Adafruit Unified Sensor @ ^1.1.15[m
+[32m+[m[32m    ; LCD 16x2 con módulo I2C[m
+[32m+[m[32m    marcoschwartz/LiquidCrystal_I2C @ ^1.1.4[m
+ [m
+ ; Source directory[m
+ ;src_dir = src[m
+[1mdiff --git a/firmware/src/irrigation.cpp b/firmware/src/irrigation.cpp[m
+[1mindex 906fc0b..706ff98 100644[m
+[1m--- a/firmware/src/irrigation.cpp[m
+[1m+++ b/firmware/src/irrigation.cpp[m
+[36m@@ -2,51 +2,50 @@[m
+ #include "../config/config.h"[m
+ [m
+ // ==============================================================[m
+[31m-// irrigation.cpp — Lógica de control de riego y relé[m
+[32m+[m[32m// irrigation.cpp — Lógica de control de riego y L298N[m
+ // ==============================================================[m
+ [m
+ static bool _pumpState = false;[m
+ [m
+[31m-// Helpers internos para manejar el relé (lógica invertida o directa)[m
+[31m-// Asumimos un módulo de relé estándar que se activa con LOW (muy común).[m
+[31m-// Si tu relé se activa con HIGH, cambia HIGH por LOW y viceversa.[m
+[31m-#define RELAY_ON  LOW[m
+[31m-#define RELAY_OFF HIGH[m
+[32m+[m[32m// Helper interno para controlar la bomba mediante el L298N[m
+[32m+[m[32m// IN1 del L298N recibe HIGH (~3.3 V) para encender la bomba.[m
+[32m+[m[32m// IN1 recibe LOW (0 V) para apagarla.[m
+[32m+[m[32m#define PUMP_ON HIGH[m
+[32m+[m[32m#define PUMP_OFF LOW[m
+ [m
+ static void setPump(bool state) {[m
+[31m-    if (_pumpState != state) {[m
+[31m-        _pumpState = state;[m
+[31m-        digitalWrite(PIN_RELAY_PUMP, state ? RELAY_ON : RELAY_OFF);[m
+[31m-        [m
+[31m-        Serial.print("[Riego] Bomba de agua: ");[m
+[31m-        Serial.println(state ? "ENCENDIDA" : "APAGADA");[m
+[31m-    }[m
+[32m+[m[32m  if (_pumpState != state) {[m
+[32m+[m[32m    _pumpState = state;[m
+[32m+[m[32m    digitalWrite(PIN_L298N_IN1, state ? PUMP_ON : PUMP_OFF);[m
+[32m+[m
+[32m+[m[32m    Serial.print("[Riego] Bomba de agua: ");[m
+[32m+[m[32m    Serial.println(state ? "ENCENDIDA" : "APAGADA");[m
+[32m+[m[32m  }[m
+ }[m
+ [m
+ void irrigation_init() {[m
+[31m-    Serial.println("[Riego] Inicializando relé...");[m
+[31m-    pinMode(PIN_RELAY_PUMP, OUTPUT);[m
+[31m-    [m
+[31m-    // Iniciar con la bomba apagada por seguridad[m
+[31m-    digitalWrite(PIN_RELAY_PUMP, RELAY_OFF);[m
+[31m-    _pumpState = false;[m
+[31m-    Serial.println("[Riego] Bomba lista (Apagada por defecto).");[m
+[31m-}[m
+[32m+[m[32m  Serial.println("[Riego] Inicializando L298N...");[m
+[32m+[m[32m  pinMode(PIN_L298N_IN1, OUTPUT);[m
+ [m
+[31m-bool irrigation_isPumpOn() {[m
+[31m-    return _pumpState;[m
+[32m+[m[32m  // Iniciar con la bomba apagada por seguridad[m
+[32m+[m[32m  digitalWrite(PIN_L298N_IN1, PUMP_OFF);[m
+[32m+[m[32m  _pumpState = false;[m
+[32m+[m[32m  Serial.println("[Riego] Bomba lista (Apagada por defecto).");[m
+ }[m
+ [m
+[31m-void irrigation_process(float currentMoisture, bool isManualMode, bool manualPumpState) {[m
+[31m-    if (isManualMode) {[m
+[31m-        // MODO MANUAL: Responde ciegamente a la orden del Dashboard[m
+[31m-        setPump(manualPumpState);[m
+[32m+[m[32mbool irrigation_isPumpOn() { return _pumpState; }[m
+[32m+[m
+[32m+[m[32mvoid irrigation_process(float currentMoisture, bool isManualMode,[m
+[32m+[m[32m                        bool manualPumpState) {[m
+[32m+[m[32m  if (isManualMode) {[m
+[32m+[m[32m    // MODO MANUAL: Responde ciegamente a la orden del Dashboard[m
+[32m+[m[32m    setPump(manualPumpState);[m
+[32m+[m[32m  } else {[m
+[32m+[m[32m    // MODO AUTOMÁTICO: Basado en las lecturas de los sensores[m
+[32m+[m[32m    if (currentMoisture < MOISTURE_THRESHOLD) {[m
+[32m+[m[32m      setPump(true); // Muy seco, regar[m
+     } else {[m
+[31m-        // MODO AUTOMÁTICO: Basado en las lecturas de los sensores[m
+[31m-        if (currentMoisture < MOISTURE_THRESHOLD) {[m
+[31m-            setPump(true); // Muy seco, regar[m
+[31m-        } else {[m
+[31m-            setPump(false); // Suficiente humedad, detener[m
+[31m-        }[m
+[32m+[m[32m      setPump(false); // Suficiente humedad, detener[m
+     }[m
+[32m+[m[32m  }[m
+ }[m
+[1mdiff --git a/firmware/src/main.cpp b/firmware/src/main.cpp[m
+[1mindex b79f060..7526823 100644[m
+[1m--- a/firmware/src/main.cpp[m
+[1m+++ b/firmware/src/main.cpp[m
+[36m@@ -1,18 +1,19 @@[m
+[31m-#include <Arduino.h>[m
+ #include "../config/config.h"[m
+[31m-#include "wifi_manager.h"[m
+[31m-#include "sensors.h"[m
+ #include "firebase_client.h"[m
+ #include "irrigation.h"[m
+[32m+[m[32m#include "lcd.h"[m
+[32m+[m[32m#include "sensors.h"[m
+[32m+[m[32m#include "wifi_manager.h"[m
+[32m+[m[32m#include <Arduino.h>[m
+ [m
+ // ==============================================================[m
+ // main.cpp — SmartGarden-IoTV2 Firmware Entry Point[m
+ // ==============================================================[m
+ [m
+ // --------------- Timing state ---------------------------------[m
+[31m-static unsigned long _lastReadingMs  = 0;[m
+[31m-static unsigned long _lastPublishMs  = 0;[m
+[31m-static unsigned long _lastControlMs  = 0;[m
+[32m+[m[32mstatic unsigned long _lastReadingMs = 0;[m
+[32m+[m[32mstatic unsigned long _lastPublishMs = 0;[m
+[32m+[m[32mstatic unsigned long _lastControlMs = 0;[m
+ [m
+ // Variables de estado del Dashboard[m
+ static bool _isManualMode = false;[m
+[36m@@ -21,75 +22,85 @@[m [mstatic bool _manualPumpState = false;[m
+ // --------------- Arduino lifecycle ----------------------------[m
+ [m
+ void setup() {[m
+[31m-    // 1. Serial[m
+[31m-    Serial.begin(SERIAL_BAUD_RATE);[m
+[31m-    delay(500);[m
+[31m-    Serial.println();[m
+[31m-    Serial.println("==============================================");[m
+[31m-    Serial.print  ("  ");[m
+[31m-    Serial.println(DEVICE_NAME);[m
+[31m-    Serial.println("  SmartGarden-IoTV2 — Firmware (Firebase)");[m
+[31m-    Serial.println("==============================================");[m
+[31m-[m
+[31m-    // 2. Módulos de Hardware[m
+[31m-    Serial.println("[Setup] Inicializando hardware...");[m
+[31m-    sensors_init();[m
+[31m-    irrigation_init();[m
+[31m-[m
+[31m-    // 3. Red y Nube[m
+[31m-    Serial.println("[Setup] Inicializando red...");[m
+[31m-    wifi_init();[m
+[31m-    firebase_init();[m
+[31m-[m
+[31m-    // 4. Ready[m
+[31m-    Serial.println("[Setup] Sistema listo.");[m
+[31m-    Serial.print  ("[Setup] WiFi conectado: ");[m
+[31m-    Serial.println(wifi_isConnected() ? "SI" : "NO");[m
+[31m-    Serial.println("==============================================");[m
+[31m-    Serial.println("[Loop] Iniciando bucle principal...");[m
+[32m+[m[32m  // 1. Serial[m
+[32m+[m[32m  Serial.begin(SERIAL_BAUD_RATE);[m
+[32m+[m[32m  delay(500);[m
+[32m+[m[32m  Serial.println();[m
+[32m+[m[32m  Serial.println("==============================================");[m
+[32m+[m[32m  Serial.print("  ");[m
+[32m+[m[32m  Serial.println(DEVICE_NAME);[m
+[32m+[m[32m  Serial.println("  SmartGarden-IoTV2 — Firmware (Firebase)");[m
+[32m+[m[32m  Serial.println("==============================================");[m
+[32m+[m
+[32m+[m[32m  // 2. Módulos de Hardware[m
+[32m+[m[32m  Serial.println("[Setup] Inicializando hardware...");[m
+[32m+[m[32m  sensors_init();[m
+[32m+[m[32m  irrigation_init();[m
+[32m+[m[32m  lcd_init();[m
+[32m+[m
+[32m+[m[32m  pinMode(PIN_WATER_LEVEL, INPUT_PULLUP);[m
+[32m+[m
+[32m+[m[32m  // 3. Red y Nube[m
+[32m+[m[32m  Serial.println("[Setup] Inicializando red...");[m
+[32m+[m[32m  wifi_init();[m
+[32m+[m[32m  firebase_init();[m
+[32m+[m
+[32m+[m[32m  // 4. Ready[m
+[32m+[m[32m  Serial.println("[Setup] Sistema listo.");[m
+[32m+[m[32m  Serial.print("[Setup] WiFi conectado: ");[m
+[32m+[m[32m  Serial.println(wifi_isConnected() ? "SI" : "NO");[m
+[32m+[m[32m  Serial.println("==============================================");[m
+[32m+[m[32m  Serial.println("[Loop] Iniciando bucle principal...");[m
+ }[m
+ [m
+ void loop() {[m
+[31m-    unsigned long now = millis();[m
+[32m+[m[32m  unsigned long now = millis();[m
+ [m
+[31m-    // 1. Mantener WiFi activo[m
+[31m-    wifi_maintain();[m
+[32m+[m[32m  // 1. Mantener WiFi activo[m
+[32m+[m[32m  wifi_maintain();[m
+ [m
+[31m-    // 2. Leer comandos manuales desde Firebase (cada 5 segundos para no saturar)[m
+[31m-    if (now - _lastControlMs >= 5000) {[m
+[31m-        _lastControlMs = now;[m
+[31m-        if (wifi_isConnected()) {[m
+[31m-            firebase_getManualControlState(_isManualMode, _manualPumpState);[m
+[31m-        }[m
+[32m+[m[32m  // 2. Leer comandos manuales desde Firebase (cada 5 segundos para no saturar)[m
+[32m+[m[32m  if (now - _lastControlMs >= 5000) {[m
+[32m+[m[32m    _lastControlMs = now;[m
+[32m+[m[32m    if (wifi_isConnected()) {[m
+[32m+[m[32m      firebase_getManualControlState(_isManualMode, _manualPumpState);[m
+     }[m
+[32m+[m[32m  }[m
+ [m
+[31m-    // 3. Leer sensores y ejecutar lógica de riego[m
+[31m-    if (now - _lastReadingMs >= READING_INTERVAL_MS) {[m
+[31m-        _lastReadingMs = now;[m
+[31m-        [m
+[31m-        // Tomar lecturas[m
+[31m-        SensorReading reading = sensors_read();[m
+[31m-        [m
+[31m-        // Ejecutar cerebro de riego[m
+[31m-        irrigation_process(reading.soilMoisturePercent, _isManualMode, _manualPumpState);[m
+[31m-    }[m
+[32m+[m[32m  // 3. Leer sensores y ejecutar lógica de riego[m
+[32m+[m[32m  if (now - _lastReadingMs >= READING_INTERVAL_MS) {[m
+[32m+[m[32m    _lastReadingMs = now;[m
+[32m+[m
+[32m+[m[32m    // Tomar lecturas[m
+[32m+[m[32m    SensorReading reading = sensors_read();[m
+[32m+[m
+[32m+[m[32m    bool waterLevelOk = digitalRead(PIN_WATER_LEVEL) == LOW;[m
+[32m+[m
+[32m+[m[32m    // Ejecutar cerebro de riego[m
+[32m+[m[32m    irrigation_process(reading.soilMoisturePercent, _isManualMode,[m
+[32m+[m[32m                       _manualPumpState);[m
+[32m+[m[32m    // Actualizar información del LCD[m
+[32m+[m[32m    lcd_show(reading.soilMoisturePercent, reading.phValue,[m
+[32m+[m[32m             reading.airTemperatureC, reading.airHumidityPercent,[m
+[32m+[m[32m             irrigation_isPumpOn(), waterLevelOk);[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  // 4. Publicar datos a Firebase[m
+[32m+[m[32m  if (now - _lastPublishMs >= PUBLISH_INTERVAL_MS) {[m
+[32m+[m[32m    _lastPublishMs = now;[m
+[32m+[m
+[32m+[m[32m    if (wifi_isConnected()) {[m
+[32m+[m[32m      SensorReading reading = sensors_getLastReading();[m
+[32m+[m[32m      bool pumpStatus = irrigation_isPumpOn();[m
+ [m
+[31m-    // 4. Publicar datos a Firebase[m
+[31m-    if (now - _lastPublishMs >= PUBLISH_INTERVAL_MS) {[m
+[31m-        _lastPublishMs = now;[m
+[31m-[m
+[31m-        if (wifi_isConnected()) {[m
+[31m-            SensorReading reading = sensors_getLastReading();[m
+[31m-            bool pumpStatus = irrigation_isPumpOn();[m
+[31m-            [m
+[31m-            if (firebase_publishReading(reading, pumpStatus)) {[m
+[31m-                Serial.println("[Loop] Lectura enviada a Firebase correctamente.");[m
+[31m-            }[m
+[31m-        } else {[m
+[31m-            Serial.println("[Loop] Sin WiFi. No se enviaron datos.");[m
+[31m-        }[m
+[32m+[m[32m      if (firebase_publishReading(reading, pumpStatus)) {[m
+[32m+[m[32m        Serial.println("[Loop] Lectura enviada a Firebase correctamente.");[m
+[32m+[m[32m      }[m
+[32m+[m[32m    } else {[m
+[32m+[m[32m      Serial.println("[Loop] Sin WiFi. No se enviaron datos.");[m
+     }[m
+[32m+[m[32m  }[m
+ [m
+[31m-    // Pequeño delay para estabilidad del RTOS[m
+[31m-    delay(10);[m
+[32m+[m[32m  // Pequeño delay para estabilidad del RTOS[m
+[32m+[m[32m  delay(10);[m
+ }[m
+\ No newline at end of file[m
+[1mdiff --git a/firmware/src/sensors.cpp b/firmware/src/sensors.cpp[m
+[1mindex 5885fab..8428022 100644[m
+[1m--- a/firmware/src/sensors.cpp[m
+[1m+++ b/firmware/src/sensors.cpp[m
+[36m@@ -3,72 +3,127 @@[m
+ #include <DHT.h>[m
+ [m
+ // ==============================================================[m
+[31m-// sensors.cpp — Soil moisture + pH sensor reading (stub for Phase 3)[m
+[31m-// Full ADC reading and calibration deferred to Phase 5.[m
+[32m+[m[32m// sensors.cpp — Soil moisture + pH sensor reading[m
+ // ==============================================================[m
+[32m+[m
+ // --------------- Private state --------------------------------[m
+[31m-static SensorReading _lastReading = {[m
+[31m-    0.0f,   // soil[m
+[31m-    0.0f,   // ph[m
+[31m-    0.0f,   // temperatura[m
+[31m-    0.0f,   // humedad ambiente[m
+[31m-    0,      // timestamp[m
+[31m-    false[m
+[31m-};[m
+[32m+[m
+[32m+[m[32mstatic SensorReading _lastReading = {0.0f, // soil[m
+[32m+[m[32m                                     0.0f, // ph[m
+[32m+[m[32m                                     0.0f, // temperatura[m
+[32m+[m[32m                                     0.0f, // humedad ambiente[m
+[32m+[m[32m                                     0,    // timestamp[m
+[32m+[m[32m                                     false};[m
+[32m+[m
+ static DHT dht(PIN_DHT, DHT_TYPE);[m
+[32m+[m
+ // --------------- Public functions -----------------------------[m
+[32m+[m
+ void sensors_init() {[m
+[31m-    // Configure ADC pins as inputs[m
+[31m-    pinMode(PIN_SOIL_MOISTURE, INPUT);[m
+[31m-    pinMode(PIN_PH_SENSOR, INPUT);[m
+[31m- 

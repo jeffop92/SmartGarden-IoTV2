@@ -38,14 +38,12 @@ bool irrigation_isPumpOn() { return _pumpState; }
 void irrigation_process(float currentMoisture, bool isManualMode,
                         bool manualPumpState) {
   if (isManualMode) {
-    // MODO MANUAL: Responde ciegamente a la orden del Dashboard
     setPump(manualPumpState);
   } else {
-    // MODO AUTOMÁTICO: Basado en las lecturas de los sensores
-    if (currentMoisture < MOISTURE_THRESHOLD) {
-      setPump(true); // Muy seco, regar
-    } else {
-      setPump(false); // Suficiente humedad, detener
+    if (!_pumpState && currentMoisture <= MOISTURE_THRESHOLD_ON) {
+      setPump(true);
+    } else if (_pumpState && currentMoisture >= MOISTURE_THRESHOLD_OFF) {
+      setPump(false);
     }
   }
 }

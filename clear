@@ -1,0 +1,149 @@
+[1mdiff --git a/dashboard/src/app/page.tsx b/dashboard/src/app/page.tsx[m
+[1mindex 0546bd3..59afcde 100644[m
+[1m--- a/dashboard/src/app/page.tsx[m
+[1m+++ b/dashboard/src/app/page.tsx[m
+[36m@@ -25,7 +25,7 @@[m [mimport {[m
+ } from 'lucide-react'[m
+ import HistoricoMediciones from '@/components/ui/HistoricoMediciones'[m
+ [m
+[31m-// Soil moisture calibration constants (from config.h: Dry=2800, Wet=900)[m
+[32m+[m[32m// El ESP32 envía el porcentaje de humedad ya calculado.[m
+ const SOIL_ADC_DRY = 2800[m
+ const SOIL_ADC_WET = 900[m
+ const MOISTURE_THRESHOLD = 30.0[m
+[36m@@ -178,13 +178,13 @@[m [mexport default function HomePage() {[m
+   }[m
+ [m
+   // Calculate soil moisture percentage (based on constants in config.h)[m
+[31m-  const calculateMoisturePercent = (rawAdc: number) => {[m
+[31m-    if (!rawAdc) return 0[m
+[31m-    // ADC 2800 is Dry (0%), ADC 900 is Wet (100%)[m
+[31m-    const percent = ((SOIL_ADC_DRY - rawAdc) / (SOIL_ADC_DRY - SOIL_ADC_WET)) * 100[m
+[31m-    return Math.max(0, Math.min(100, Math.round(percent)))[m
+[32m+[m
+[32m+[m[32m  const calculateMoisturePercent = (moisturePercent: number) => {[m
+[32m+[m[32m    if (!Number.isFinite(moisturePercent)) return 0[m
+[32m+[m[32m    return Math.max(0, Math.min(100, Math.round(moisturePercent)))[m
+   }[m
+ [m
+[32m+[m
+   // Evaluate if device is active (updates received in last 90 seconds)[m
+   const isDeviceActive = () => {[m
+     if (!lastUpdateBrowserTime) return false[m
+[36m@@ -338,7 +338,7 @@[m [mexport default function HomePage() {[m
+ [m
+       {/* DASHBOARD CONTENT */}[m
+       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">[m
+[31m-        [m
+[32m+[m
+         {/* WARNINGS AND NOTICES */}[m
+         {!isDbConnected && ([m
+           <div className="flex items-center gap-3 rounded-xl border border-red-900/30 bg-red-950/20 p-4 text-red-400">[m
+[36m@@ -354,7 +354,7 @@[m [mexport default function HomePage() {[m
+ [m
+         {/* TELEMETRY GRID */}[m
+         <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">[m
+[31m-          [m
+[32m+[m
+           {/* Soil Moisture */}[m
+           <div className="rounded-2xl border border-slate-900 bg-slate-900/30 p-6 backdrop-blur-sm relative overflow-hidden">[m
+             <div className="flex items-center justify-between mb-4">[m
+[36m@@ -363,7 +363,7 @@[m [mexport default function HomePage() {[m
+                 <Droplet className="h-6 w-6" />[m
+               </div>[m
+             </div>[m
+[31m-            [m
+[32m+[m
+             <div className="flex items-baseline gap-2">[m
+               <span className="text-4xl font-extrabold tracking-tight">[m
+                 {telemetry ? `${moisturePercent}%` : '--'}[m
+[36m@@ -373,14 +373,14 @@[m [mexport default function HomePage() {[m
+ [m
+             {/* Progress bar */}[m
+             <div className="mt-4 h-2 w-full rounded-full bg-slate-950 overflow-hidden">[m
+[31m-              <div [m
+[31m-                className="h-full bg-blue-500 transition-all duration-500" [m
+[32m+[m[32m              <div[m
+[32m+[m[32m                className="h-full bg-blue-500 transition-all duration-500"[m
+                 style={{ width: `${telemetry ? moisturePercent : 0}%` }}[m
+               />[m
+             </div>[m
+ [m
+             <div className="mt-3 flex justify-between text-xs text-slate-500">[m
+[31m-              <span>Raw: {telemetry ? `${moistureRaw} ADC` : '--'}</span>[m
+[32m+[m[32m              <span>Humedad medida: {telemetry ? `${moistureRaw.toFixed(1)}%` : '--'}</span>[m
+               <span>Límite Riego: {MOISTURE_THRESHOLD}%</span>[m
+             </div>[m
+           </div>[m
+[36m@@ -393,7 +393,7 @@[m [mexport default function HomePage() {[m
+                 <Activity className="h-6 w-6" />[m
+               </div>[m
+             </div>[m
+[31m-            [m
+[32m+[m
+             <div className="flex items-baseline gap-2">[m
+               <span className="text-4xl font-extrabold tracking-tight">[m
+                 {telemetry ? telemetry.ph.toFixed(1) : '--'}[m
+[36m@@ -418,7 +418,7 @@[m [mexport default function HomePage() {[m
+                 <Thermometer className="h-6 w-6" />[m
+               </div>[m
+             </div>[m
+[31m-            [m
+[32m+[m
+             <div className="flex items-baseline gap-2">[m
+               <span className="text-4xl font-extrabold tracking-tight">[m
+                 {telemetry ? `${telemetry.temperature.toFixed(1)}°C` : '--'}[m
+[36m@@ -438,7 +438,7 @@[m [mexport default function HomePage() {[m
+                 <Droplet className="h-6 w-6" />[m
+               </div>[m
+             </div>[m
+[31m-            [m
+[32m+[m
+             <div className="flex items-baseline gap-2">[m
+               <span className="text-4xl font-extrabold tracking-tight">[m
+                 {telemetry ? `${Math.round(telemetry.humidity)}%` : '--'}[m
+[36m@@ -455,7 +455,7 @@[m [mexport default function HomePage() {[m
+ [m
+         {/* IRRIGATION CONTROL AND STATUS */}[m
+         <section className="grid grid-cols-1 gap-6 md:grid-cols-2">[m
+[31m-          [m
+[32m+[m
+           {/* CONTROL CARD */}[m
+           <div className="rounded-2xl border border-slate-900 bg-slate-900/30 p-6 backdrop-blur-sm space-y-6">[m
+             <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-900 pb-3">[m
+[36m@@ -468,12 +468,12 @@[m [mexport default function HomePage() {[m
+               <div>[m
+                 <h3 className="font-semibold">Modo de Funcionamiento</h3>[m
+                 <p className="text-xs text-slate-500 mt-0.5">[m
+[31m-                  {control.isManual [m
+[31m-                    ? 'Modo Manual: Comandos enviados desde este panel.' [m
+[32m+[m[32m                  {control.isManual[m
+[32m+[m[32m                    ? 'Modo Manual: Comandos enviados desde este panel.'[m
+                     : 'Modo Automático: El ESP32 decide según la humedad.'}[m
+                 </p>[m
+               </div>[m
+[31m-              [m
+[32m+[m
+               <button[m
+                 onClick={toggleMode}[m
+                 className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${control.isManual ? 'bg-amber-500' : 'bg-emerald-500'}`}[m
+[36m@@ -519,7 +519,7 @@[m [mexport default function HomePage() {[m
+                   {pumpActive && ([m
+                     <div className="absolute inset-0 rounded-full bg-blue-500/20 animate-ping" />[m
+                   )}[m
+[31m-                  [m
+[32m+[m
+                   <div className={`relative flex h-24 w-24 items-center justify-center rounded-full border transition-all duration-300 ${pumpActive ? 'bg-blue-950/50 border-blue-400 text-blue-400' : 'bg-slate-900 border-slate-800 text-slate-600'}`}>[m
+                     <Droplet className={`h-12 w-12 ${pumpActive ? 'animate-bounce' : ''}`} />[m
+                   </div>[m
+[36m@@ -530,8 +530,8 @@[m [mexport default function HomePage() {[m
+                     Bomba de Agua: {pumpActive ? 'ENCENDIDA' : 'APAGADA'}[m
+                   </h3>[m
+                   <p className="text-xs text-slate-500 mt-1">[m
+[31m-                    {control.isManual [m
+[31m-                      ? 'Estado forzado manualmente por el usuario' [m
+[32m+[m[32m                    {control.isManual[m
+[32m+[m[32m                      ? 'Estado forzado manualmente por el usuario'[m
+                       : `Decisión automática por humedad < ${MOISTURE_THRESHOLD}%`}[m
+                   </p>[m
+                 </div>[m
