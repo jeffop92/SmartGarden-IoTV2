@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { db } from '@/lib/firebase'
-import { ref, get } from 'firebase/database'
+import { ref, get, onValue } from 'firebase/database'
 import { BarChart2, Calendar, AlertTriangle, RefreshCw, Database, Zap } from 'lucide-react'
 
 // ---------------------------------------------------------------
@@ -61,6 +61,10 @@ function MetricChart({
   minValue,
   maxValue,
 }: MetricChartProps) {
+  const [viewMode, setViewMode] = useState<'general' | 'detail'>('general')
+  const [detailStart, setDetailStart] = useState(0)
+
+  const DETAIL_SIZE = 15
   const W = 900
   const H = 230
   const PAD = { top: 20, right: 30, bottom: 35, left: 65 }
@@ -69,7 +73,10 @@ function MetricChart({
   const chartHeight = H - PAD.top - PAD.bottom
 
   // Mostrar únicamente las 100 mediciones más recientes
-  const recentRecords = records.slice(0, 100)
+  const recentRecords = records.slice(0, 50)
+  const visibleRecords = viewMode === 'general'
+    ? recentRecords
+    : recentRecords.slice(detailStart, detailStart + DETAIL_SIZE)
 
   const validRecords = recentRecords.filter((record) => {
     const value = Number(record.data[dataKey])
@@ -118,14 +125,31 @@ function MetricChart({
   const max = maxValue ?? dynamicMax
   const range = max - min || 1
 
-  const labelStep = Math.max(1, Math.ceil(validRecords.length / 8))
+  const labelStep = viewMode === 'detail'
+    ? 1
+    : Math.max(1, Math.ceil(validRecords.length / 8))
 
-  const points = validRecords.map((record, index) => {
+  const chartValidRecords = visibleRecords.filter((record) => {
     const value = Number(record.data[dataKey])
+    if (!Number.isFinite(value)) return false
+
+    if (
+      (dataKey === 'temperature' || dataKey === 'humidity') &&
+      value <= 0
+    ) return false
+
+    return true
+  })
+
+  const points = chartValidRecords.map((record, index) => {
+    const value = Number(record.data[dataKey])
+    const originalIndex = recentRecords.findIndex(
+      (item) => item.id === record.id
+    )
 
     const x =
       PAD.left +
-      (index / Math.max(validRecords.length - 1, 1)) * chartWidth
+      (index / Math.max(chartValidRecords.length - 1, 1)) * chartWidth
 
     const normalized = Math.max(
       0,
@@ -134,7 +158,7 @@ function MetricChart({
 
     const y = PAD.top + chartHeight - normalized * chartHeight
 
-    return { x, y, value, index }
+    return { x, y, value, index, originalIndex }
   })
 
   const path = points
@@ -144,13 +168,61 @@ function MetricChart({
     )
     .join(' ')
 
-  const latestValue = validValues[0]
+  const latestValue = validValues[validValues.length - 1]
 
   return (
     <div className="rounded-xl border border-slate-900 bg-slate-950/40 p-4 space-y-3">
 
       {/* Chart header */}
       <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setViewMode('general')
+                setDetailStart(0)
+              }}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium ${viewMode === 'general'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-800 text-slate-300'
+                }`}
+            >
+              General
+            </button>
+
+            <button
+              onClick={() => {
+                setViewMode('detail')
+                setDetailStart(0)
+              }}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium ${viewMode === 'detail'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-800 text-slate-300'
+                }`}
+            >
+              Detallada
+            </button>
+          </div>
+
+          {viewMode === 'detail' && (
+            <span className="text-xs text-slate-400">
+              Mediciones {detailStart + 1}–{Math.min(detailStart + DETAIL_SIZE, recentRecords.length)} de {recentRecords.length}
+            </span>
+          )}
+        </div>
+
+        {viewMode === 'detail' && (
+          <input
+            type="range"
+            min={0}
+            max={Math.max(0, recentRecords.length - DETAIL_SIZE)}
+            step={1}
+            value={detailStart}
+            onChange={(e) => setDetailStart(Number(e.target.value))}
+            className="w-full cursor-pointer accent-blue-500"
+            aria-label="Desplazar mediciones históricas"
+          />
+        )}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span
@@ -270,7 +342,7 @@ function MetricChart({
               fill="#64748b"
               textAnchor="middle"
             >
-              #{point.index + 1}
+              #{point.originalIndex + 1}
             </text>
           )
         })}
@@ -301,6 +373,8 @@ export default function HistoricoMediciones() {
   const [availableDates, setAvailableDates] = useState<string[]>([])
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [records, setRecords] = useState<HistoryEntry[]>([])
+  // Últimas 50 mediciones, ordenadas cronológicamente
+  const chartRecords = records.slice(0, 50).reverse()
 
   const [loadingDates, setLoadingDates] = useState(true)
   const [loadingRecords, setLoadingRecords] = useState(false)
@@ -338,49 +412,57 @@ export default function HistoricoMediciones() {
   }, [])
 
   // ------------------------------------------------------------------
-  // Fetch all records for the selected date (single GET, not a listener)
-  // ------------------------------------------------------------------
-  const fetchRecords = useCallback(async (date: string) => {
-    if (!date) return
+  // Escuchar en tiempo real los registros de la fecha seleccionada
+  useEffect(() => {
+    if (!selectedDate) {
+      setRecords([])
+      return
+    }
+
     setLoadingRecords(true)
     setErrorRecords(null)
-    setRecords([])
-    try {
-      const snapshot = await get(ref(db, `/smartgarden/history/${date}`))
-      if (snapshot.exists()) {
-        const raw = snapshot.val() as Record<string, HistoryRecord>
-        const entries: HistoryEntry[] = Object.entries(raw).map(([id, record]) => ({
-          id,
-          data: {
-            soilMoisture: Number(record.soilMoisture),
-            ph: Number(record.ph),
-            temperature: Number(record.temperature),
-            humidity: Number(record.humidity),
-            pumpIsOn: record.pumpIsOn === true,
-            timestamp: String(record.timestamp ?? ''),
-          },
-        }))
-        console.log('[HISTORICO] Primer registro convertido:', entries[0])
-        // Mostrar primero los registros con mayor tiempo de actividad
-        // Ordenar por ID de Firebase: primero el registro más reciente
-        entries.sort((a, b) => b.id.localeCompare(a.id))
-        setRecords(entries)
-      } else {
-        setRecords([])
-      }
-    } catch (err) {
-      console.error('[Histórico] Error al obtener registros:', err)
-      setErrorRecords('Error al cargar el histórico.')
-    } finally {
-      setLoadingRecords(false)
-    }
-  }, [])
 
-  useEffect(() => {
-    if (selectedDate) {
-      void fetchRecords(selectedDate)
-    }
-  }, [selectedDate, fetchRecords])
+    const historyRef = ref(db, `/smartgarden/history/${selectedDate}`)
+
+    const unsubscribe = onValue(
+      historyRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const raw = snapshot.val() as Record<string, HistoryRecord>
+
+          const entries: HistoryEntry[] = Object.entries(raw).map(
+            ([id, record]) => ({
+              id,
+              data: {
+                soilMoisture: Number(record.soilMoisture),
+                ph: Number(record.ph),
+                temperature: Number(record.temperature),
+                humidity: Number(record.humidity),
+                pumpIsOn: record.pumpIsOn === true,
+                timestamp: String(record.timestamp ?? ''),
+              },
+            })
+          )
+
+          // Firebase push IDs: más reciente primero
+          entries.sort((a, b) => b.id.localeCompare(a.id))
+
+          setRecords(entries)
+        } else {
+          setRecords([])
+        }
+
+        setLoadingRecords(false)
+      },
+      (error) => {
+        console.error('[Histórico] Error al escuchar registros:', error)
+        setErrorRecords('Error al cargar el histórico.')
+        setLoadingRecords(false)
+      }
+    )
+
+    return () => unsubscribe()
+  }, [selectedDate])
 
   // ------------------------------------------------------------------
   // Render
@@ -503,7 +585,7 @@ export default function HistoricoMediciones() {
               </div>
 
               <MetricChart
-                records={records}
+                records={chartRecords}
                 dataKey="soilMoisture"
                 title="Humedad del suelo"
                 color="#3b82f6"
@@ -513,7 +595,7 @@ export default function HistoricoMediciones() {
               />
 
               <MetricChart
-                records={records}
+                records={chartRecords}
                 dataKey="temperature"
                 title="Temperatura ambiental"
                 color="#f97316"
@@ -523,7 +605,7 @@ export default function HistoricoMediciones() {
               />
 
               <MetricChart
-                records={records}
+                records={chartRecords}
                 dataKey="humidity"
                 title="Humedad del aire"
                 color="#14b8a6"
@@ -533,7 +615,7 @@ export default function HistoricoMediciones() {
               />
 
               <MetricChart
-                records={records}
+                records={chartRecords}
                 dataKey="ph"
                 title="pH del suelo"
                 color="#a855f7"
