@@ -478,16 +478,6 @@ export default function HistoricoMediciones() {
         </h2>
 
         {/* Reload button — only visible once records are loaded */}
-        {selectedDate && !loadingRecords && (
-          <button
-            onClick={() => void fetchRecords(selectedDate)}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all"
-            title="Recargar registros"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Recargar
-          </button>
-        )}
       </div>
 
       {/* ---- Date selector row ---- */}
