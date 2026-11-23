@@ -26,8 +26,6 @@ import {
 
   Droplet,
 
-  Thermometer,
-
   Activity,
 
   LogOut,
@@ -58,11 +56,16 @@ const SOIL_ADC_DRY = 2800
 
 const SOIL_ADC_WET = 900
 
-const MOISTURE_THRESHOLD = 50.0
+const MOISTURE_THRESHOLD_ON = 55.0
+const MOISTURE_THRESHOLD_OFF = 60.0
 const SOIL_MOISTURE_MIN = 60
 const SOIL_MOISTURE_MAX = 65
-const PH_MIN = 6.5
-const PH_MAX = 7.0
+// Rangos agronómicos del rábano
+const PH_MIN = 5.5
+const PH_MAX = 6.8
+// Rango objetivo de cultivo
+const PH_OPTIMAL_MIN = 6.0
+const PH_OPTIMAL_MAX = 6.5
 
 
 
@@ -71,10 +74,6 @@ interface TelemetryData {
   soilMoisture: number
 
   ph: number
-
-  temperature: number
-
-  humidity: number
 
   pumpIsOn: boolean
 
@@ -712,7 +711,7 @@ export default function HomePage() {
 
         {/* TELEMETRY GRID */}
 
-        <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="grid grid-cols-1 gap-6 sm:grid-cols-2">
 
 
 
@@ -768,7 +767,8 @@ export default function HomePage() {
 
               <span>Humedad medida: {telemetry ? `${moistureRaw.toFixed(1)}%` : '--'}</span>
 
-              <span>Límite Riego: {MOISTURE_THRESHOLD}%</span>
+              <span>Activa: ≤ {MOISTURE_THRESHOLD_ON}%</span>
+              <span>Apaga: ≥ {MOISTURE_THRESHOLD_OFF}%</span>
 
             </div>
 
@@ -814,21 +814,28 @@ export default function HomePage() {
                 {telemetry && Number.isFinite(telemetry.ph) ? (
                   <>
                     <span
-                      className={`h-2 w-2 rounded-full ${telemetry.ph >= PH_MIN && telemetry.ph <= PH_MAX
+                      className={`h-2 w-2 rounded-full ${telemetry.ph >= PH_OPTIMAL_MIN && telemetry.ph <= PH_OPTIMAL_MAX
                         ? 'bg-emerald-400'
-                        : 'bg-amber-400'
+                        : telemetry.ph >= PH_MIN && telemetry.ph <= PH_MAX
+                          ? 'bg-amber-400'
+                          : 'bg-red-400'
                         }`}
                     />
+
                     <span
                       className={
-                        telemetry.ph >= PH_MIN && telemetry.ph <= PH_MAX
+                        telemetry.ph >= PH_OPTIMAL_MIN && telemetry.ph <= PH_OPTIMAL_MAX
                           ? 'text-emerald-400'
-                          : 'text-amber-400'
+                          : telemetry.ph >= PH_MIN && telemetry.ph <= PH_MAX
+                            ? 'text-amber-400'
+                            : 'text-red-400'
                       }
                     >
-                      {telemetry.ph >= PH_MIN && telemetry.ph <= PH_MAX
-                        ? 'Dentro del rango'
-                        : 'Fuera del rango'}
+                      {telemetry.ph >= PH_OPTIMAL_MIN && telemetry.ph <= PH_OPTIMAL_MAX
+                        ? 'Óptimo'
+                        : telemetry.ph >= PH_MIN && telemetry.ph <= PH_MAX
+                          ? 'Aceptable'
+                          : 'Fuera del rango'}
                     </span>
                   </>
                 ) : (
@@ -837,88 +844,6 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-
-          {/* Temperature */}
-
-          <div className="rounded-2xl border border-slate-900 bg-slate-900/30 p-6 backdrop-blur-sm relative overflow-hidden">
-
-            <div className="flex items-center justify-between mb-4">
-
-              <span className="text-sm font-semibold uppercase tracking-wider text-slate-400">Temperatura</span>
-
-              <div className="rounded-xl bg-orange-500/10 p-2.5 text-orange-400">
-
-                <Thermometer className="h-6 w-6" />
-
-              </div>
-
-            </div>
-
-
-
-            <div className="flex items-baseline gap-2">
-
-              <span className="text-4xl font-extrabold tracking-tight">
-
-                {telemetry ? `${telemetry.temperature.toFixed(1)}°C` : '--'}
-
-              </span>
-
-            </div>
-
-
-
-            <p className="mt-4 text-xs text-slate-500">
-
-              DHT22 — Temperatura ambiente de cultivo
-
-            </p>
-
-          </div>
-
-
-
-          {/* Air Humidity */}
-
-          <div className="rounded-2xl border border-slate-900 bg-slate-900/30 p-6 backdrop-blur-sm relative overflow-hidden">
-
-            <div className="flex items-center justify-between mb-4">
-
-              <span className="text-sm font-semibold uppercase tracking-wider text-slate-400">Humedad Aire</span>
-
-              <div className="rounded-xl bg-teal-500/10 p-2.5 text-teal-400">
-
-                <Droplet className="h-6 w-6" />
-
-              </div>
-
-            </div>
-
-
-
-            <div className="flex items-baseline gap-2">
-
-              <span className="text-4xl font-extrabold tracking-tight">
-
-                {telemetry ? `${Math.round(telemetry.humidity)}%` : '--'}
-
-              </span>
-
-              <span className="text-xs text-slate-500">HR</span>
-
-            </div>
-
-
-
-            <p className="mt-4 text-xs text-slate-500">
-
-              DHT22 — Humedad relativa ambiental
-
-            </p>
-
-          </div>
-
-
 
         </section>
 
@@ -992,7 +917,7 @@ export default function HomePage() {
 
               <div>
 
-                <h3 className="font-semibold">Bomba de Agua (Relé)</h3>
+                <h3 className="font-semibold">Bomba de Agua (L298N)</h3>
 
                 <p className="text-xs text-slate-500 mt-0.5">
 
@@ -1082,7 +1007,7 @@ export default function HomePage() {
 
                       ? 'Estado forzado manualmente por el usuario'
 
-                      : `Decisión automática por humedad < ${MOISTURE_THRESHOLD}%`}
+                      : `Control automático: activa ≤ ${MOISTURE_THRESHOLD_ON}% y apaga ≥ ${MOISTURE_THRESHOLD_OFF}%`}
 
                   </p>
 
