@@ -12,8 +12,6 @@ import { BarChart2, Calendar, AlertTriangle, RefreshCw, Database, Zap } from 'lu
 interface HistoryRecord {
   soilMoisture: number
   ph: number
-  temperature: number
-  humidity: number
   pumpIsOn: boolean
   timestamp: string
 }
@@ -40,7 +38,7 @@ function isValidNumber(value: unknown): value is number {
 // Individual charts for each sensor variable
 // ---------------------------------------------------------------
 
-type NumericKey = 'soilMoisture' | 'temperature' | 'humidity' | 'ph'
+type NumericKey = 'soilMoisture' | 'ph'
 
 interface MetricChartProps {
   records: HistoryEntry[]
@@ -82,15 +80,6 @@ function MetricChart({
     const value = Number(record.data[dataKey])
 
     if (!Number.isFinite(value)) return false
-
-    // Ignorar registros antiguos sin lecturas ambientales válidas
-    if (
-      (dataKey === 'temperature' || dataKey === 'humidity') &&
-      value <= 0
-    ) {
-      return false
-    }
-
     return true
   })
 
@@ -132,12 +121,6 @@ function MetricChart({
   const chartValidRecords = visibleRecords.filter((record) => {
     const value = Number(record.data[dataKey])
     if (!Number.isFinite(value)) return false
-
-    if (
-      (dataKey === 'temperature' || dataKey === 'humidity') &&
-      value <= 0
-    ) return false
-
     return true
   })
 
@@ -436,8 +419,6 @@ export default function HistoricoMediciones() {
               data: {
                 soilMoisture: Number(record.soilMoisture),
                 ph: Number(record.ph),
-                temperature: Number(record.temperature),
-                humidity: Number(record.humidity),
                 pumpIsOn: record.pumpIsOn === true,
                 timestamp: String(record.timestamp ?? ''),
               },
@@ -586,26 +567,6 @@ export default function HistoricoMediciones() {
 
               <MetricChart
                 records={chartRecords}
-                dataKey="temperature"
-                title="Temperatura ambiental"
-                color="#f97316"
-                unit="°C"
-                minValue={20}
-                maxValue={30}
-              />
-
-              <MetricChart
-                records={chartRecords}
-                dataKey="humidity"
-                title="Humedad del aire"
-                color="#14b8a6"
-                unit="%"
-                minValue={0}
-                maxValue={100}
-              />
-
-              <MetricChart
-                records={chartRecords}
                 dataKey="ph"
                 title="pH del suelo"
                 color="#a855f7"
@@ -627,8 +588,6 @@ export default function HistoricoMediciones() {
                     'Hora',
                     'Humedad del suelo',
                     'pH',
-                    'Temperatura',
-                    'Humedad del aire',
                     'Bomba',
                   ].map((col) => (
                     <th
@@ -681,20 +640,6 @@ export default function HistoricoMediciones() {
                             entry.data.ph <= 9.18
                             ? entry.data.ph.toFixed(2)
                             : 'No disponible'}
-                        </span>
-                      </td>
-
-                      {/* Temperatura ambiental */}
-                      <td className="px-4 py-3 tabular-nums">
-                        <span className="font-medium text-orange-400">
-                          {entry.data.temperature.toFixed(1)}&nbsp;°C
-                        </span>
-                      </td>
-
-                      {/* Humedad ambiental */}
-                      <td className="px-4 py-3 tabular-nums">
-                        <span className="font-medium text-teal-400">
-                          {Math.round(entry.data.humidity)}&nbsp;%
                         </span>
                       </td>
 
